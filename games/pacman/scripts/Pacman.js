@@ -24,6 +24,13 @@ export default class pacman {
         this.powerDotAboutToExpire=false;
         this.#loadpacmanImages();
         this.timers=[];
+
+
+
+   document.addEventListener("touchstart", this.#touchStart, { passive: true });
+document.addEventListener("touchend", this.#touchEnd, { passive: true });
+
+
     }
 
     Rotation = {
@@ -199,4 +206,69 @@ export default class pacman {
             });
         }
     }
+
+
+    #touchStartX = 0;
+#touchStartY = 0;
+
+#touchStart = (event) => {
+    const touch = event.touches[0];
+    this.#touchStartX = touch.clientX;
+    this.#touchStartY = touch.clientY;
+};
+
+#touchEnd = (event) => {
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - this.#touchStartX;
+    const deltaY = touch.clientY - this.#touchStartY;
+
+    // Determine swipe direction
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Horizontal swipe
+        if (deltaX > 0) {
+            this.#moveRight();
+        } else {
+            this.#moveLeft();
+        }
+    } else {
+        // Vertical swipe
+        if (deltaY > 0) {
+            this.#moveDown();
+        } else {
+            this.#moveUp();
+        }
+    }
+};
+#moveUp() {
+    if (this.currentMOvingDirection === MovingDirection.down) {
+        this.currentMOvingDirection = MovingDirection.up;
+    }
+    this.requestMovingDirection = MovingDirection.up;
+    this.madeFirstMove = true;
+}
+
+#moveDown() {
+    if (this.currentMOvingDirection === MovingDirection.up) {
+        this.currentMOvingDirection = MovingDirection.down;
+    }
+    this.requestMovingDirection = MovingDirection.down;
+    this.madeFirstMove = true;
+}
+
+#moveLeft() {
+    if (this.currentMOvingDirection === MovingDirection.right) {
+        this.currentMOvingDirection = MovingDirection.left;
+    }
+    this.requestMovingDirection = MovingDirection.left;
+    this.madeFirstMove = true;
+}
+
+#moveRight() {
+    if (this.currentMOvingDirection === MovingDirection.left) {
+        this.currentMOvingDirection = MovingDirection.right;
+    }
+    this.requestMovingDirection = MovingDirection.right;
+    this.madeFirstMove = true;
+}
+
 }
