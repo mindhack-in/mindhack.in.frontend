@@ -88,14 +88,11 @@ export class Player {
           this.x = this.gameWidth - this.width;
       }
     });
-
-    // Optionally handle swipe down to restart (if gameOver exists)
     window.addEventListener("touchend", (e) => {
       if (this.dead === false) {
         const endY = e.changedTouches[0].pageY;
         const swipeDistance = endY - this.touchY;
         if (swipeDistance > this.touchThreshold) {
-          console.log("Swipe down detected");
           if (gameOver) restartGame();
         }
       }
@@ -103,7 +100,6 @@ export class Player {
   }
 
   draw(frameX, enemies) {
-    // console.log(this.score)
     if (this.currentState.draw(this.ctx, frameX, this.x, this.y))
       this.gameOver = true;
     if (this.dead === false)
