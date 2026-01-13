@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stacker Single File</title>
+    <style>
+    
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color, #f0f0f0);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+        #game-container { position: relative; }
+        canvas { 
+            background-color: #222; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); 
+            border-radius: 8px;
+        }
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            width: 100%; 
+            text-align: center; 
+            pointer-events: none; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .score-text { font-size: 3rem; margin: 0; }
+        .hint { opacity: 0.6; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui">
+            <h1 class="score-text" id="score">0</h1>
+            <div class="hint">Tap or Space to Stack</div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        canvas.width = 400;
+        canvas.height = 600;
+
+        // Constants
+        const BOX_HEIGHT = 35;
+        const PERFECT_MARGIN = 5; // Pixels allowed for a "Perfect" snap
+
+        // Game State
+        let score = 0;
+        let speed = 3;
+        let gameActive = true;
+        let blocks = [];
+        
+        // Initial Base Platform
+        blocks.push({ 
+            x: 100, 
+            y: canvas.height - BOX_HEIGHT - 20, 
+            width: 200, 
+            color: '#555' 
+        });
+
+        // Current moving block
+        let currentBlock = {
+            x: 0,
+            y: blocks[0].y - BOX_HEIGHT,
+            width: 200,
+            direction: 1,
+            color: `hsl(200, 70%, 60%)`
+        };
+
+        function draw() {
+            if (!gameActive) return;
+
+            // Clear Background
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw stacked blocks
+            blocks.forEach((block, index) => {
+                ctx.fillStyle = block.color;
+                ctx.fillRect(block.x, block.y, block.width, BOX_HEIGHT);
+                
+                // Add a slight highlight to the edge for depth
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(block.x, block.y, block.width, 2);
+            });
+
+            // Draw active moving block
+            ctx.fillStyle = currentBlock.color;
+            ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.width, BOX_HEIGHT);
+
+            // Movement logic
+            currentBlock.x += speed * currentBlock.direction;
+            
+            if (currentBlock.x + currentBlock.width > canvas.width || currentBlock.x < 0) {
+                currentBlock.direction *= -1;
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        function handleInput() {
+            if (!gameActive) return;
+
+            let lastBlock = blocks[blocks.length - 1];
+            
+            // Check for Perfect Snap
+            let diff = currentBlock.x - lastBlock.x;
+            if (Math.abs(diff) < PERFECT_MARGIN) {
+                currentBlock.x = lastBlock.x; // Snap to position
+            }
+
+            // Calculate Overlap
+            let overlapX = Math.max(currentBlock.x, lastBlock.x);
+            let overlapWidth = Math.min(currentBlock.x + currentBlock.width, lastBlock.x + lastBlock.width) - overlapX;
+
+            if (overlapWidth > 0) {
+                score++;
+                scoreElement.innerText = score;
+                
+                // Add current block to the stack
+                blocks.push({
+                    x: overlapX,
+                    y: currentBlock.y,
+                    width: overlapWidth,
+                    color: `hsl(${(score * 20) % 360}, 70%, 60%)`
+                });
+
+                // Set up next block
+                currentBlock.width = overlapWidth;
+                currentBlock.y -= BOX_HEIGHT;
+                currentBlock.x = (currentBlock.direction > 0) ? 0 : canvas.width - overlapWidth;
+                speed += 0.15; // Gradually speed up
+
+                // Camera "Scroll" - Keep the top block in the same vertical spot
+                if (blocks.length > 6) {
+                    blocks.forEach(b => b.y += BOX_HEIGHT);
+                    currentBlock.y += BOX_HEIGHT;
+                }
+            } else {
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
+            ctx.font = '20px Arial';
+            ctx.fillText("Click to Restart", canvas.width/2, canvas.height/2 + 40);
+            
+            canvas.onclick = () => location.reload();
+        }
+
+        // Event Listeners
+        window.addEventListener('keydown', (e) => { 
+            if(e.code === 'Space') {
+                e.preventDefault();
+                handleInput(); 
+            }
+        });
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handleInput();
+        });
+
+        draw();
+
+
+           function resizeBody() {
+            document.body.style.width = window.innerWidth + 'px';
+            document.body.style.height = window.innerHeight + 'px';
+        }
+
+        window.addEventListener('resize', resizeBody);
+        // Initial call
+        resizeBody();
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight-10;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
+</body>
+</html>
