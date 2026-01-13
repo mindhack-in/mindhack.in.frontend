@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fixed Block Puzzle</title>
+    <style>
+     :root {
+    --bg: #0f172a;
+    --grid-bg: #1e293b;
+    --cell-bg: #334155;
+    --accent: #38bdf8;
+    --highlight: #fbbf24;
+}
+
+body {
+    background: var(--bg);
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    /* align-items: center; */
+    margin: 0;
+    padding: 10px;
+    height: 100%;
+    touch-action: manipulation; /* Prevents zooming on fast taps */
+}
+
+h1 { font-size: 1.5rem; margin: 10px 0; }
+
+#score-board {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--highlight);
+    margin-bottom: 10px;
+}
+
+/* RESPONSIVE GRID */
+#grid { 
+    display: grid;
+    /* This makes the cells responsive: max 45px, but shrinks on small screens */
+    grid-template-columns: repeat(8, min(11vw, 45px));
+    grid-template-rows: repeat(8, min(11vw, 45px)); 
+    gap: 4px;
+    background: var(--grid-bg);
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+
+.cell { 
+    width: 100%;
+    height: 100%;
+    background: var(--cell-bg);
+    border-radius: 4px; 
+    cursor: pointer;
+}
+
+.cell.filled { 
+    background: var(--accent);
+    box-shadow: inset 0 0 8px rgba(255,255,255,0.3);
+}
+
+/* RESPONSIVE PIECES AREA */
+#pieces-area { 
+    display: flex; 
+    justify-content: center;
+    align-items: center;
+    gap: 15px; 
+    /* margin-top: 25px;  */
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    min-height: 100px;
+}
+
+.piece-container { 
+    padding: 8px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    flex: 1; /* Makes all 3 containers equal width */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.piece-container.selected { 
+    border-color: var(--highlight);
+    background: rgba(251, 191, 36, 0.1);
+}
+
+.piece-grid { display: grid; gap: 2px; }
+
+/* Shrink the preview pieces so they fit in the row */
+.p-cell { 
+    width: min(4vw, 18px); 
+    height: min(4vw, 18px); 
+    border-radius: 2px; 
+}
+.p-cell.active { background: var(--accent); }
+
+/* MOBILE SPECIFIC ADJUSTMENTS */
+@media (max-width: 480px) {
+    #grid { gap: 2px;  }
+    h1 { font-size: 1.2rem; }
+    #score-board { font-size: 1.4rem; }
+    #pieces-area { gap: 8px; }
+}
+    </style>
+</head>
+<body>
+    <div id="score-board">Score: <span id="score">0</span></div>
+    <div id="pieces-area"></div>
+    <div id="grid"></div>
+    <p><i>Click a piece below, then click the grid to place it!</i></p>
+    <script>
+        const GRID_SIZE = 8;
+        let score = 0;
+        let gridState = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+        let selectedPiece = null;
+        let selectedPieceIndex = null;
+
+        const SHAPES = [
+            { name: 'sq', data: [[0,0], [0,1], [1,0], [1,1]] },
+            { name: 'h3', data: [[0,0], [0,1], [0,2]] },
+            { name: 'v3', data: [[0,0], [1,0], [2,0]] },
+            { name: 'l',  data: [[0,0], [1,0], [1,1]] },
+            { name: 'dot',data: [[0,0]] }
+        ];
+
+        let currentPieces = [];
+
+        function init() {
+            renderGrid();
+            spawnPieces();
+        }
+
+        function renderGrid() {
+            const gridEl = document.getElementById('grid');
+            gridEl.innerHTML = '';
+            for(let y=0; y<GRID_SIZE; y++) {
+                for(let x=0; x<GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${gridState[y][x] ? 'filled' : ''}`;
+                    cell.onclick = () => placePiece(y, x);
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        function spawnPieces() {
+            currentPieces = [];
+            const area = document.getElementById('pieces-area');
+            area.innerHTML = '';
+            
+            for(let i=0; i<3; i++) {
+                const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                currentPieces.push(shape.data);
+                
+                const container = document.createElement('div');
+                container.className = 'piece-container';
+                container.onclick = () => selectPiece(i, container);
+                
+                const pGrid = document.createElement('div');
+                pGrid.className = 'piece-grid';
+                
+                const maxY = Math.max(...shape.data.map(s => s[0])) + 1;
+                const maxX = Math.max(...shape.data.map(s => s[1])) + 1;
+                pGrid.style.gridTemplateColumns = `repeat(${maxX}, 20px)`;
+
+                for(let y=0; y<maxY; y++) {
+                    for(let x=0; x<maxX; x++) {
+                        const pc = document.createElement('div');
+                        pc.className = shape.data.some(s => s[0] === y && s[1] === x) ? 'p-cell active' : 'p-cell';
+                        pGrid.appendChild(pc);
+                    }
+                }
+                container.appendChild(pGrid);
+                area.appendChild(container);
+            }
+        }
+
+        function selectPiece(index, element) {
+            document.querySelectorAll('.piece-container').forEach(el => el.classList.remove('selected'));
+            if (selectedPieceIndex === index) {
+                selectedPiece = null;
+                selectedPieceIndex = null;
+            } else {
+                selectedPiece = currentPieces[index];
+                selectedPieceIndex = index;
+                element.classList.add('selected');
+            }
+        }
+
+        function placePiece(y, x) {
+            if (!selectedPiece) return;
+
+            // Check if it fits
+            const canPlace = selectedPiece.every(([dy, dx]) => {
+                const ny = y + dy;
+                const nx = x + dx;
+                return ny < GRID_SIZE && nx < GRID_SIZE && gridState[ny][nx] === 0;
+            });
+
+            if (canPlace) {
+                selectedPiece.forEach(([dy, dx]) => {
+                    gridState[y + dy][x + dx] = 1;
+                });
+
+                // Remove used piece
+                currentPieces[selectedPieceIndex] = null;
+                const pContainers = document.querySelectorAll('.piece-container');
+                pContainers[selectedPieceIndex].style.visibility = 'hidden';
+                
+                selectedPiece = null;
+                selectedPieceIndex = null;
+
+                checkAndClearLines();
+                renderGrid();
+
+                // If all 3 used, spawn new
+                if (currentPieces.every(p => p === null)) spawnPieces();
+            }
+        }
+
+        function checkAndClearLines() {
+            let rowsToClear = [];
+            let colsToClear = [];
+
+            for(let i=0; i<GRID_SIZE; i++) {
+                if (gridState[i].every(v => v === 1)) rowsToClear.push(i);
+                if (gridState.map(row => row[i]).every(v => v === 1)) colsToClear.push(i);
+            }
+
+            rowsToClear.forEach(y => gridState[y].fill(0));
+            colsToClear.forEach(x => {
+                for(let y=0; y<GRID_SIZE; y++) gridState[y][x] = 0;
+            });
+
+            if (rowsToClear.length > 0 || colsToClear.length > 0) {
+                score += (rowsToClear.length + colsToClear.length) * 100;
+                document.getElementById('score').innerText = score;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
